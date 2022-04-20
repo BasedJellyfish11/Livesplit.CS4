@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net48</TargetFramework>
+        <LangVersion>7.3</LangVersion>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <OutputDir2>$(ProjectDir)Components</OutputDir2>
+        <ILRepack>$(ProjectDir)ILRepack\ILRepack.exe</ILRepack>
+    </PropertyGroup>
+    
+    <ItemGroup>
+        <Reference Include="LiveSplit.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+            <HintPath>..\..\..\..\Speedrunning\LiveSplit_1.6.9\LiveSplit.Core.dll</HintPath>
+        </Reference>
+        <Reference Include="PresentationCore" />
+        <Reference Include="System.Drawing" />
+        <Reference Include="System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+            <HintPath>C:\Windows\Microsoft.NET\Framework\v4.0.30319\System.Drawing.dll</HintPath>
+        </Reference>
+        <Reference Include="System.Windows.Forms" />
+        <Reference Include="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+            <HintPath>C:\Windows\Microsoft.NET\Framework\v4.0.30319\System.Windows.Forms.dll</HintPath>
+        </Reference>
+        <Reference Include="UpdateManager, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null">
+            <HintPath>..\..\..\..\Speedrunning\LiveSplit_1.6.9\UpdateManager.dll</HintPath>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Folder Include="Properties" />
+    </ItemGroup>
+    <PropertyGroup>
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    </PropertyGroup>
+    
+    <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+        <!-- <Copy SourceFiles="$(ILRepack)" DestinationFiles="$(TargetDir)ILRepack.exe" SkipUnchangedFiles="true" /> -->
+        <!-- <Exec WorkingDirectory="$(TargetDir)" Command="ILRepack.exe /out:Livesplit.CS3.dll Livesplit.CS3.dll WindowsInput.dll" /> -->
+        <Copy SourceFiles="$(TargetDir)Livesplit.CS4.dll" DestinationFiles="$(OutputDir2)/Livesplit.CS4.dll" />
+        <Copy SourceFiles="$(TargetDir)Livesplit.CS4.dll" DestinationFolder="D:\Speedrunning\LiveSplit_1.6.9\Components" />
+    </Target>
+</Project>
