@@ -23,8 +23,7 @@ namespace Livesplit.CS4
 
         private readonly bool _continuouslyFire;
        
-        public delegate void OnPointerChangeHandler(T lastValue, T currentValue);
-        public OnPointerChangeHandler OnPointerChange;
+        public Action<T,T> OnPointerChange;
 
         /**
          * Should never be called before game is hooked or at least launched

@@ -1,35 +1,36 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Threading;
 using Livesplit.CS4.Enums;
 
 namespace Livesplit.CS4
 {
     // The point of this class is to connect the paths and console to the game and update the paths.
     // Values should be gotten from the paths directly but through this class (hence why they're public)
-    // A reminder that the DebugMonitor raises an event whenever a line is captured, and that's how the lines should be gotten (from the monitor's event directly)
     
     public class PointerAndConsoleManager : IDisposable
     {
 
         private const string PROCESS_NAME = "ed8_4_PC";
 
-
         private DateTime _nextHookAttempt = DateTime.MinValue;
         private Process _game;
         private bool _disablePointer;
 
+        private PointerPath<byte> _loadValue1;
+        public Action<byte> OnLoad1Change;
+        
+        private PointerPath<byte> _loadValue6;
+        public Action<byte> OnLoad6Change;
+
         private PointerPath<ushort> _battleID;
-        public delegate void OnBattleEndHandler(BattleEnums endedBattle);
-        public OnBattleEndHandler OnBattleEnd;
+        public Action<BattleEnums> OnBattleEnd;
+        
+        private PointerPath<ushort> _cutsceneID;
+        public Action<CutsceneEnums> OnCutsceneStart;
         
         private PointerPath<int> _chapterNumber;
-        // public delegate void OnChapterEndHandler(ChapterEnums oldChapter);
-        // public OnChapterEndHandler OnChapterEnd;
-
-        private PointerPath<byte> _cheating;
-        public delegate void OnBattleAnimationStartHandler();
-        public OnBattleAnimationStartHandler OnBattleAnimationStart;
+        public Action<ChapterEnums> OnChapterEnd;
+        
         
         public bool IsHooked => _game != null && IsAlive(_game);
         
@@ -60,40 +61,73 @@ namespace Livesplit.CS4
 
             switch (_game.MainModule?.ModuleMemorySize)
             {
-                case 0x1DEA000:
-                    _battleID = new PointerPath<ushort>(_game, new []{0xC53330, 0x1CE8, 0x5B1C0}); // Got these through the disassembler so they should be universal
-                    _chapterNumber = new PointerPath<int>(_game, new []{0x16C48B8}); // Static yes!!!!
-                    _cheating = new PointerPath<byte>(_game, new []{0x00C53210, 0x8, 0x28, 0x1AA8,0x8, 0x2F98, 0x290, 0x278, 0x278, 0x2C8, 0x2A0}, 0, 1, true);
+                case 0x3811000:
+                    Logger.Log("Identified version 1.2");
+                    // Got these through the disassembler so they should be universal
+                    _loadValue1 = new PointerPath<byte>(_game, new[] { 0x37867D0, 0x1CB8, 0x17E98, 0x0, 0x25 });
+                    _loadValue6 = new PointerPath<byte>(_game, new[] { 0x37867D0, 0x1CB8, 0x17E98, 0x0, 0x20 });
+                    _battleID = new PointerPath<ushort>(_game, new []{ 0x37867D0, 0x1CB8, 0x49608 });
+                    _cutsceneID = new PointerPath<ushort>(_game, new[] { 0xD0B9B8, 0x1CB8, 0x49308 });
+                    _chapterNumber = new PointerPath<int>(_game, new []{ 0xD1AB64 });
                     break;
-                default: _disablePointer = true;
+                default: 
+                    Logger.Log($"New version identified! Module size is {_game.MainModule?.ModuleMemorySize:X2}");
                     break;
             }
             
-            Thread.Sleep(500);
             _game.Exited += OnGameExit;
             if(_disablePointer)
                 return;
-            
+
+            _loadValue1.OnPointerChange += CheckLoad1;
+            _loadValue6.OnPointerChange += CheckLoad6;
             _battleID.OnPointerChange += CheckBattleSplit;
-            // _chapterNumber.OnPointerChange += CheckChapterSplit;
-            _cheating.OnPointerChange += CheckSkipAnimation;
-
-
-
+            _cutsceneID.OnPointerChange += CheckCutsceneSplit;
+            _chapterNumber.OnPointerChange += CheckChapterSplit;
+            
+            
         }
 
+        
         public void UpdateValues()
         {
             if (_disablePointer) return;
+            _loadValue1.UpdateAddressValue();
+            _loadValue6.UpdateAddressValue();
             _battleID.UpdateAddressValue();
-            _cheating.UpdateAddressValue();
+            _cutsceneID.UpdateAddressValue();
             _chapterNumber.UpdateAddressValue();
 
+        }
+        
+        private void CheckLoad1(byte oldValue, byte newValue)
+        {
+            OnLoad1Change.Invoke(newValue);
+        }
+        
+        private void CheckLoad6(byte oldValue, byte newValue)
+        {
+            OnLoad6Change.Invoke(newValue);
+        }
+        
+        private void CheckCutsceneSplit(ushort oldID, ushort newID)
+        {           
+            Logger.Log($"Cutscene ID changed from {oldID} to {newID}");
+            if(newID == 0) return; // A cutscene has ended, not started
+            
+            if (!Enum.IsDefined(typeof(CutsceneEnums), newID))
+            {
+                Logger.Log($"The cutscene ID value {newID} isn't defined!");
+                return;
+            }
+
+            Logger.Log($"Firing the Cutscene Start Action! Enum is {(CutsceneEnums)newID}");
+            OnCutsceneStart.Invoke((CutsceneEnums)newID);
         }
 
         private void CheckBattleSplit(ushort oldID, ushort newID)
         {
-            Logger.Log($"Hello lol {oldID} {newID}");
+            Logger.Log($"Battle ID changed from {oldID} to {newID}");
             if(oldID == 0 || newID != 0) return; // A battle has started, not ended
             
             if (!Enum.IsDefined(typeof(BattleEnums), oldID))
@@ -102,12 +136,11 @@ namespace Livesplit.CS4
                 return;
             }
 
-            Logger.Log($"Firing the Battle End Delegate! Enum is {(BattleEnums)oldID}");
+            Logger.Log($"Firing the Battle End Action! Enum is {(BattleEnums)oldID}");
             OnBattleEnd.Invoke((BattleEnums)oldID);
             
         }
-        
-        /*
+
         private void CheckChapterSplit(int oldChapter, int newChapter)
         {
             if(newChapter != oldChapter+1) return; // If the chapter jumps we probably loaded a save or something
@@ -118,21 +151,11 @@ namespace Livesplit.CS4
                 return;
             }
 
-            Logger.Log($"Firing the Chapter End Delegate! Enum is {(ChapterEnums)oldChapter}");
+            Logger.Log($"Firing the Chapter End Action! Enum is {(ChapterEnums)oldChapter}");
             OnChapterEnd.Invoke((ChapterEnums)oldChapter);
             
         }
         
-        */
-        
-        private void CheckSkipAnimation(byte lastvalue, byte currentvalue)
-        {
-            if(currentvalue != 1) return;
-            
-            Logger.Log("Firing the Animation Start Delegate!");
-            OnBattleAnimationStart.Invoke();   
-            
-        }
 
         private void OnGameExit(object sender, EventArgs e)
         {
@@ -147,9 +170,11 @@ namespace Livesplit.CS4
                 if (!_disablePointer)
                 {
                     // ReSharper disable DelegateSubtraction
+                    _loadValue1.OnPointerChange -= CheckLoad1;
+                    _loadValue6.OnPointerChange -= CheckLoad6;
                     _battleID.OnPointerChange -= CheckBattleSplit;
-                    // _chapterNumber.OnPointerChange -= CheckChapterSplit;
-                    _cheating.OnPointerChange -= CheckSkipAnimation;
+                    _cutsceneID.OnPointerChange -= CheckCutsceneSplit;
+                    _chapterNumber.OnPointerChange -= CheckChapterSplit;
                     // ReSharper restore DelegateSubtraction
                 }
                 

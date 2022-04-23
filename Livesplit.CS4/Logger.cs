@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Livesplit.CS4
 {
@@ -10,26 +11,26 @@ namespace Livesplit.CS4
     
     public static class Logger
     {
-        private const string FILE_NAME = "ToCS4_Livesplit_Log";
-        private static readonly string path = Path.Combine(Path.GetTempPath(), FILE_NAME, ".txt");
-        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
+        private const string FILE_NAME = "ToCS4_Livesplit_Log.log";
+        private static readonly string path = Path.Combine(Path.GetTempPath(), FILE_NAME);
 
         static Logger()
         {
             Debug.Print("Creating Logger");
-            File.Create(path);
-            File.SetCreationTimeUtc(path, DateTime.UtcNow);
+            Debug.Print(path);
+            File.Create(path).Close();
+            File.SetCreationTimeUtc(path, DateTime.UtcNow); 
         }
         
-        public static async void Log(string message)
+        public static void Log(string message)
         {
-            await _semaphore.WaitAsync();
+
+            Debug.Print(message);
             using(StreamWriter writer = new StreamWriter(new FileStream(path, FileMode.Append, FileAccess.Write)))
             {
-                await writer.WriteLineAsync($"[{DateTime.Now}] {message}");
+                writer.WriteLine($"[{DateTime.Now}] {message}");
             }
 
-            _semaphore.Release();
         }
         
     }

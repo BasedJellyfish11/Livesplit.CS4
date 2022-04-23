@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
 using System.Xml;
+using Livesplit.CS4.Enums;
 using LiveSplit.Model;
 using LiveSplit.UI;
 using LiveSplit.UI.Components;
@@ -17,11 +19,10 @@ namespace Livesplit.CS4
         private readonly PointerAndConsoleManager _manager;
         private readonly Settings _settings = new Settings();
         
-        private bool _delegatesHooked; 
+        private bool _actionsHooked; 
         
-        // These two are related so you could make them a struct if you reeeeeeeeeeeeally wanted to but like it's 2 bools dude
-        private bool _drawStartLoad;
-        private bool _initFieldLoad;
+        private bool _isLoading6;
+        private bool _isLoading1;
         
         public string ComponentName { get; }
 
@@ -42,9 +43,7 @@ namespace Livesplit.CS4
             };
             
             _model.InitializeGameTime();
-            _delegatesHooked = false;
-            _drawStartLoad = false;
-            _initFieldLoad = false;
+            _actionsHooked = false;
             
         }
         
@@ -53,18 +52,16 @@ namespace Livesplit.CS4
             _manager.Hook();
             if (!_manager.IsHooked)
             {
-                _drawStartLoad = true;
-                _initFieldLoad = false;
                 _model.CurrentState.IsGameTimePaused = true;
-                
-                UnhookDelegates();
-                
+                _isLoading1 = false;
+                _isLoading6 = false;
+                UnhookActions();
                 return;
             }
 
-            if (!_delegatesHooked) 
+            if (!_actionsHooked) 
             {
-                HookDelegates();
+                HookActions();
             }
             
             _manager.UpdateValues();
@@ -72,87 +69,30 @@ namespace Livesplit.CS4
         }
 
 
-        private void CheckStart(string text)
+        private void CheckStart(CutsceneEnums cutsceneID)
         {
-            if (_model.CurrentState.CurrentSplitIndex != -1)
+            if (_model.CurrentState.CurrentSplitIndex != -1 || cutsceneID != CutsceneEnums.Start)
                 return;
             
-            if (!text.StartsWith("exitField(\"title00\") - start: nextMap(\"f1000\")")) return;
             Logger.Log("Starting timer");
-            _model.CurrentState.IsGameTimePaused = true;
             _model.Start();
         }
 
-        private void CheckLoading(string line)
+        private void CheckLoading()
         {
- 
-            if (!_model.CurrentState.IsGameTimePaused)
-            {
-                if (line.StartsWith("NOW LOADING Draw Start"))
-                {
-                    
-                    Logger.Log("Pausing timer! Line was " + line);
-                    _model.CurrentState.IsGameTimePaused = true;
-                    _drawStartLoad = true;
-                }
-
-                else if (line.StartsWith("FieldMap::initField start") )
-                {
-                    
-                    Logger.Log("Pausing timer! Line was " + line);
-                    _model.CurrentState.IsGameTimePaused = true;
-                    _initFieldLoad = true;
-
-                }
-                
-                else if (line.StartsWith("exitField"))
-                {
-                    
-                    Logger.Log("Pausing timer! Line was " + line);
-                    _model.CurrentState.IsGameTimePaused = true;
-                    
-                }
-            }
-
-            else
-            {
-                if (!_initFieldLoad && !_drawStartLoad && line.StartsWith("exitField - end"))
-                {
-                    
-                    Logger.Log("Unpausing timer! Line was " + line);
-                    _model.CurrentState.IsGameTimePaused = false;
-                    
-                }
-                
-                else if (!_drawStartLoad && line.StartsWith("FieldMap::initField end"))
-                {
-                    
-                    Logger.Log("Unpausing timer! Line was " + line);
-                    _model.CurrentState.IsGameTimePaused = false;
-                    _initFieldLoad = false;
-                    
-                }
-                
-                else if (line.StartsWith("NOW LOADING Draw End")){
-                    
-                    Logger.Log("Unpausing timer! Line was " + line);
-                    _model.CurrentState.IsGameTimePaused = false;
-                    _drawStartLoad = false;
-                                   
-                }
-            }
+            Logger.Log("Checking load");
+            _model.CurrentState.IsGameTimePaused = _isLoading1 || _isLoading6;
+            
         }
         
         private void CheckSplit<T>(T split) where T: Enum
         {
             
-
             if (!_settings.currentSplitSettings.Contains(split)) return; // If the setting is false, or it doesn't exist, return
 
             Logger.Log("Running a split with enum " + split);
             _model.Split();
 
-            
         }
 
 
@@ -175,32 +115,42 @@ namespace Livesplit.CS4
 
         public void Dispose()
         {
-            UnhookDelegates();
+            UnhookActions();
             _manager.Dispose();
         }
 
         #region UtilityMethods
 
-        private void HookDelegates()
+        private void HookActions()
         {
             Logger.Log("Subscribing events...");
-            if(_delegatesHooked)
+            if(_actionsHooked)
                 return;
 
             _manager.OnBattleEnd += CheckSplit;
             Logger.Log("OnBattleEnd hooked to Split!");
 
-            // _manager.OnChapterEnd += CheckSplit;
+            _manager.OnChapterEnd += CheckSplit;
             Logger.Log("OnChapterEnd hooked to Split!");
-            
-            _delegatesHooked = true;
+
+            _manager.OnCutsceneStart += CheckStart;
+            Logger.Log("OnCutsceneStart hooked to Start!");
+            _manager.OnCutsceneStart += CheckSplit;
+            Logger.Log("OnCutsceneStart hooked to Split!");
+
+            _manager.OnLoad1Change += newValue => { _isLoading1 = newValue != 1;  CheckLoading(); };
+            Logger.Log("OnLoad1Change hooked to load lambda!");
+            _manager.OnLoad6Change += newValue =>  { _isLoading6 = newValue != 6;  CheckLoading(); };
+            Logger.Log("OnLoad6Change hooked to load lambda!");
+
+            _actionsHooked = true;
             
             Logger.Log("Events subscribed!");
         }
         
-        private void UnhookDelegates()
+        private void UnhookActions()
         {
-            if(!_delegatesHooked)
+            if(!_actionsHooked)
                 return;
             
             Logger.Log("Unsubscribing events...");
@@ -208,10 +158,15 @@ namespace Livesplit.CS4
             _manager.OnBattleEnd -= CheckSplit;
             Logger.Log("OnBattleEnd unhooked from BattleSplit!");
 
-            // _manager.OnChapterEnd -= CheckSplit;
+            _manager.OnChapterEnd -= CheckSplit;
             Logger.Log("OnBattleEnd unhooked from BattleSplit!");
             
-            _delegatesHooked = false;
+            _manager.OnCutsceneStart -= CheckStart;
+            Logger.Log("OnCutsceneStart unhooked to Start!");
+            _manager.OnCutsceneStart -= CheckSplit;
+            Logger.Log("OnCutsceneStart unhooked to Split!");
+            
+            _actionsHooked = false;
 
         }
 
