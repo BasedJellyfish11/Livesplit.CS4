@@ -92,6 +92,7 @@ namespace Livesplit.CS4
         public void UpdateValues()
         {
             if (_disablePointer) return;
+            
             _loadValue1.UpdateAddressValue();
             _loadValue6.UpdateAddressValue();
             _battleID.UpdateAddressValue();
