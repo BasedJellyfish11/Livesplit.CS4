@@ -4,7 +4,29 @@
     {
         // Crossbell prologue
         Orchis_Clay_Dolls = 100,
+        Orchis_Spiral_Clotho = 102,
+        Orchis_Divine_Delph = 103,
+        Orchis_Elevator_Ambushers = 104,
+        Orchis_Claire_Alberich_Belle = 105,
         
+        // Act 1
+        
+        Order_Tutorial = 200,
+        Juna_Gunner_Tutorial = 201,
+        Links_Tutorial = 202,
+        Roselia_Labyrinth = 203,
+        
+        Magic_Knight_Siegheim = 204,
+        Panzer_Summon_Tutorial = 205,
+        
+        Hamel_Plantix = 206,
+        Hamel_Gilbert = 207,
+        Hamel_Zephyr = 208,
+        Hamel_Zector = 1000,
+        
+        
+
+
         // Lamare optional highway monster
         Scyllamarme = 926,
         

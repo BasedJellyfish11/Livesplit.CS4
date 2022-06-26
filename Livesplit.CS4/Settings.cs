@@ -21,8 +21,20 @@ namespace Livesplit.CS4
                 displayedSettings.Add($"Split_{enums.ToString()}", enums);
             }
             
+            foreach (ChapterEnums enums in Enum.GetValues(typeof(ChapterEnums)))
+            {
+                displayedSettings.Add($"Split_{enums.ToString()}", enums);
+            }
+            
+            foreach (CutsceneEnums enums in Enum.GetValues(typeof(CutsceneEnums)).OfType<CutsceneEnums>().Where(x => x != CutsceneEnums.Start_Cutscene))
+            {
+                displayedSettings.Add($"Split_{enums.ToString()}", enums);
+            }
+
             InitializeComponent();
-            SplitsCollection.Items.AddRange(displayedSettings.Keys.Select(x => x.Replace("_", " ")).ToArray());
+            if (displayedSettings != null) 
+                SplitsCollection.Items.AddRange(displayedSettings.Keys.Select(x => x.Replace("_", " ")).ToArray());
+            
             Load += LoadLayout;
             currentSplitSettings = new HashSet<Enum>();
             
@@ -56,10 +68,10 @@ namespace Livesplit.CS4
         {
             XmlElement xmlSettings = document.CreateElement("Settings");
 
-            foreach (string battleSplit in displayedSettings.Keys)
+            foreach (string splitSetting in displayedSettings.Keys)
             {
-                XmlElement element = document.CreateElement(battleSplit);
-                element.InnerText = currentSplitSettings.Contains(displayedSettings[battleSplit]).ToString();
+                XmlElement element = document.CreateElement(splitSetting);
+                element.InnerText = currentSplitSettings.Contains(displayedSettings[splitSetting]).ToString();
                 xmlSettings.AppendChild(element);
             }
             

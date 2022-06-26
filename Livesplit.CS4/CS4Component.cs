@@ -71,7 +71,7 @@ namespace Livesplit.CS4
 
         private void CheckStart(CutsceneEnums cutsceneID)
         {
-            if (_model.CurrentState.CurrentSplitIndex != -1 || cutsceneID != CutsceneEnums.Start)
+            if (_model.CurrentState.CurrentSplitIndex != -1 || cutsceneID != CutsceneEnums.Start_Cutscene)
                 return;
             
             Logger.Log("Starting timer");

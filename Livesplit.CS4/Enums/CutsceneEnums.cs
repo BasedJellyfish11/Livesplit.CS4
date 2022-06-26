@@ -2,6 +2,6 @@
 {
     public enum CutsceneEnums : ushort
     {
-        Start = 1,
+        Start_Cutscene = 1,
     }
 }
